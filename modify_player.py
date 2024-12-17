@@ -67,9 +67,42 @@ def parse_file(df: pd.DataFrame) -> None:
         seen.add(team_id)
 
 
+def edit_contract(df: pd.DataFrame) -> None:
+    """
+    Runs a capture loop to continuously edit contracts for players
+
+    Args:
+        df (DataFrame): The loaded roster dataframe
+    """
+    while True:
+        player_name = input("Enter Player Name ('0' to finish): ")
+        if player_name == "0": break
+        else: player_name = player_name.split(" ")
+        player_first, player_last = player_name[0], player_name[1]
+
+        matches = df[(df['FirstName'] == player_first) & (df['LastName'] == player_last)]
+        if len(matches) == 1: player = matches.iloc[0]
+        else:
+            print(matches)
+            player_idx = int(input("Enter row (0 indexed): "))
+            player = matches.iloc[player_idx]
+        
+        player_id = player.loc['id']
+        contract = [0 for _ in range(10)]
+        contract_length = int(input("Contract Length (no more than 10, 0 for minor-league deal): "))
+        for year in range(contract_length):
+            contract[year] = int(input(f"Enter $ for year {year+1}: "))
+        
+        for i in range(10):
+            year = i+1
+            df.loc[(df['id'] == player_id), f"contract y{year}"] = contract[i]
+        df.loc[(df['id'] == player_id), "contract current year (0 = first year)"] = 0
+    
+
 if __name__ == "__main__":
     df = pd.read_csv(INPUT_FILE_NAME, sep=',', names=COLUMNS, comment='/', index_col=False)
     parse_file(df)
 
+    edit_contract(df)
 
     df.to_csv(OUTPUT_FILE_NAME, sep=',', index=False, header=False)
