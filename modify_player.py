@@ -12,15 +12,16 @@ COLUMNS = [block.strip() for block in RAW_COLUMNS_STRING.split(",")]
 MAJOR_LEAGUE_NAME = "Major League Baseball"
 
 
-id2name = {} # Map (unique) team ID to team name
-id2league = {} # Map (unique) team ID to league name
+id2name = { 0:"FA" } # Map (unique) team ID to team name
+id2league = { 0:"FA" } # Map (unique) team ID to league name
 ml_name2id = {} # Map major league team name to (unique) team ID
 ml_affils = {} # Map major league team (unique) ID to list of minor league affiliate team IDs
 
 
-def parse_teams(df: pd.DataFrame) -> None:
+def parse_file(df: pd.DataFrame) -> None:
     """
     Parses the teams of the roster file and populates the dictionaries for use
+    Keeps row-based iteration localized to single function
 
     Args:
         df (DataFame): The loaded roster dataframe
@@ -43,9 +44,32 @@ def parse_teams(df: pd.DataFrame) -> None:
             ml_affils[team_id] = []
         
     # Iterate through df to find minor-league affiliates
+    # .loc names come from the OOTP export
+    last_major_team = 0
+    seen = set([0]) # 0 is FA, so no need to handle those
+    for idx, row in df.iterrows():
+        player_id = row.loc['id']
+        team_id = row.loc['team_id']
+        team_name = row.loc['Team Name']
+        league_name = row.loc['League Name']
+        player_name = row.loc['FirstName'] + ' ' + row.loc['LastName']
+
+        # Ignore seen team IDs
+        if team_id in seen: continue
+
+        # Found a minor league affiliate, map to the last-seen ML team
+        if team_id not in ml_affils:
+            ml_affils[last_major_team].append(team_id)
+            id2league[team_id] = league_name
+            id2name[team_id] = team_name
+        else: last_major_team = team_id
+
+        seen.add(team_id)
 
 
 if __name__ == "__main__":
     df = pd.read_csv(INPUT_FILE_NAME, sep=',', names=COLUMNS, comment='/', index_col=False)
-    parse_teams(df)
+    parse_file(df)
+
+
     df.to_csv(OUTPUT_FILE_NAME, sep=',', index=False, header=False)
